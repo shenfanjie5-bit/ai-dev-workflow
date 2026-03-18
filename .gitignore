@@ -1,0 +1,19 @@
+# Local overrides (contain machine-specific paths/secrets)
+.claude/settings.local.json
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo

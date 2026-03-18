@@ -1,0 +1,6 @@
+# Codex Review agent configuration
+# This agent is triggered by @codex review in PR comments
+
+[review]
+auto_review = false
+severity_threshold = "P1"

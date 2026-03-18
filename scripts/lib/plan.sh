@@ -64,33 +64,25 @@ PLANEOF
   local result
   result=$(run_claude_capture "$prompt")
 
-  # Extract JSON from result (handle possible markdown fences)
+  # Save raw output for debugging
+  echo "$result" > "${log_dir}/plan-raw.log"
+
+  # Extract JSON: strip markdown code fences if present
   local json_content
-  json_content=$(echo "$result" | sed -n '/^{/,/^}/p' | head -1)
-
-  if [[ -z "$json_content" ]]; then
-    # Try to extract from markdown code block
-    json_content=$(echo "$result" | sed -n '/```json/,/```/p' | sed '1d;$d')
-  fi
-
-  if [[ -z "$json_content" ]]; then
-    # Last resort: save full output and try jq
-    echo "$result" > "$tasks_file"
-    if ! jq '.' "$tasks_file" >/dev/null 2>&1; then
-      log_error "Failed to generate valid tasks.json"
-      log_error "Claude output saved to: ${log_dir}/plan-raw.log"
-      echo "$result" > "${log_dir}/plan-raw.log"
-      return 1
-    fi
-  else
-    echo "$json_content" > "$tasks_file"
-  fi
+  json_content=$(echo "$result" | sed '/^```.*$/d')
+  echo "$json_content" > "$tasks_file"
 
   # Validate JSON
   if ! jq '.' "$tasks_file" >/dev/null 2>&1; then
-    log_error "Generated tasks.json is not valid JSON"
-    echo "$result" > "${log_dir}/plan-raw.log"
-    return 1
+    # Fallback: extract between first { and last }
+    json_content=$(echo "$result" | sed -n '/^{/,/^}/p')
+    echo "$json_content" > "$tasks_file"
+
+    if ! jq '.' "$tasks_file" >/dev/null 2>&1; then
+      log_error "Failed to generate valid tasks.json"
+      log_error "Raw output saved to: ${log_dir}/plan-raw.log"
+      return 1
+    fi
   fi
 
   local task_count

@@ -16,18 +16,25 @@ log_error()   { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 log_warn()    { echo -e "${YELLOW}[WARN]${NC} $*"; }
 log_phase()   { echo -e "\n${CYAN}══════════════════════════════════════${NC}"; echo -e "${CYAN}  Phase: $*${NC}"; echo -e "${CYAN}══════════════════════════════════════${NC}\n"; }
 
+# Claude CLI flags for non-interactive mode
+# --permission-mode acceptEdits: auto-accept file writes (safe: permissions.deny still enforced)
+# --allowedTools: whitelist only the tools needed for code generation
+CLAUDE_FLAGS=(
+  --output-format text
+  --permission-mode acceptEdits
+  --allowedTools "Edit Write Read Bash Glob Grep"
+)
+
 # Run claude in non-interactive mode with logging
 # Usage: run_claude "prompt" [output_file]
 run_claude() {
   local prompt="$1"
   local output_file="${2:-}"
-  local timestamp
-  timestamp=$(date +%Y%m%d-%H%M%S)
 
   if [[ -n "$output_file" ]]; then
-    claude -p "$prompt" --output-format text 2>&1 | tee "$output_file"
+    claude -p "$prompt" "${CLAUDE_FLAGS[@]}" 2>&1 | tee "$output_file"
   else
-    claude -p "$prompt" --output-format text 2>&1
+    claude -p "$prompt" "${CLAUDE_FLAGS[@]}" 2>&1
   fi
 }
 
@@ -35,7 +42,7 @@ run_claude() {
 # Usage: result=$(run_claude_capture "prompt")
 run_claude_capture() {
   local prompt="$1"
-  claude -p "$prompt" --output-format text 2>&1
+  claude -p "$prompt" "${CLAUDE_FLAGS[@]}" 2>&1
 }
 
 # Check required dependencies

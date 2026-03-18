@@ -1,0 +1,64 @@
+{
+  "hooks": [
+    {
+      "type": "PreToolUse",
+      "matcher": "Bash",
+      "hooks": [
+        {
+          "command": "bash -c 'CMD=\"$TOOL_INPUT\"; for PATTERN in \"rm -rf /\" \"rm -rf ~\" \":(){ :|:& };:\" \"mkfs\" \"dd if=\" \"> /dev/sda\"; do [[ \"$CMD\" == *\"$PATTERN\"* ]] && echo \"BLOCK: Destructive command detected: $PATTERN\" && exit 2; done; exit 0'",
+          "description": "Block catastrophically destructive bash commands"
+        }
+      ]
+    },
+    {
+      "type": "PreToolUse",
+      "matcher": "Write",
+      "hooks": [
+        {
+          "command": "bash -c 'FILE=\"$TOOL_INPUT\"; case \"$FILE\" in *.env|*.env.*|*/.env|*/.env.*) echo \"BLOCK: Cannot write to .env files\" && exit 2;; *secrets/*|*credentials*|*.pem|*.key) echo \"BLOCK: Cannot write to secrets/credential files\" && exit 2;; esac; exit 0'",
+          "description": "Prevent writing to sensitive files (.env, secrets, credentials, keys)"
+        }
+      ]
+    },
+    {
+      "type": "PreToolUse",
+      "matcher": "Read",
+      "hooks": [
+        {
+          "command": "bash -c 'FILE=\"$TOOL_INPUT\"; case \"$FILE\" in */.ssh/*|*id_rsa*|*id_ed25519*) echo \"BLOCK: Cannot read SSH keys\" && exit 2;; *.env|*.env.*|*/.env|*/.env.*) echo \"BLOCK: Cannot read .env files\" && exit 2;; esac; exit 0'",
+          "description": "Prevent reading SSH keys and .env files"
+        }
+      ]
+    },
+    {
+      "type": "PostToolUse",
+      "matcher": "Write",
+      "hooks": [
+        {
+          "command": "bash -c 'FILE=\"$TOOL_INPUT\"; case \"$FILE\" in */.claude/*|*/hooks/*) echo \"[WARN] Security-sensitive file modified: $FILE — run: npx ecc-agentshield scan\";; esac; exit 0'",
+          "description": "Warn when security-sensitive config files are modified"
+        }
+      ]
+    },
+    {
+      "type": "PostToolUse",
+      "matcher": "Edit",
+      "hooks": [
+        {
+          "command": "bash -c 'FILE=\"$TOOL_INPUT\"; case \"$FILE\" in */.claude/*|*/hooks/*) echo \"[WARN] Security-sensitive file modified: $FILE — run: npx ecc-agentshield scan\";; esac; exit 0'",
+          "description": "Warn when security-sensitive config files are edited"
+        }
+      ]
+    },
+    {
+      "type": "Stop",
+      "matcher": "",
+      "hooks": [
+        {
+          "command": "bash -c 'echo \"[Session End] Reminder: verify all changes are committed and tests pass.\"'",
+          "description": "Session-end reminder to verify work"
+        }
+      ]
+    }
+  ]
+}

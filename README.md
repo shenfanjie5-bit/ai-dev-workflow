@@ -73,9 +73,10 @@ claude
 ```bash
 crontab -e
 # Add the following (adjust paths):
-0 2 * * *   /path/to/scripts/cron/daily-test.sh   >> logs/test.log 2>&1
-0 8 * * *   /path/to/scripts/cron/daily-scan.sh   >> logs/scan.log 2>&1
-0 9 * * 1   /path/to/scripts/cron/weekly-deps.sh  >> logs/deps.log 2>&1
+0 2 * * *   /path/to/scripts/cron/daily-test.sh    >> logs/test.log 2>&1
+0 6 * * *   /path/to/scripts/cron/daily-shield.sh  >> logs/shield.log 2>&1
+0 8 * * *   /path/to/scripts/cron/daily-scan.sh    >> logs/scan.log 2>&1
+0 9 * * 1   /path/to/scripts/cron/weekly-deps.sh   >> logs/deps.log 2>&1
 ```
 
 ## Architecture
@@ -174,6 +175,7 @@ ai-dev-workflow/
 |   +-- start-sessions.sh         # tmux session launcher
 |   +-- cron/
 |       +-- daily-test.sh         # Regression tests (daily 2:00)
+|       +-- daily-shield.sh       # AgentShield scan (daily 6:00)
 |       +-- daily-scan.sh         # TODO/FIXME scan (daily 8:00)
 |       +-- weekly-deps.sh        # Dependency drift (Mon 9:00)
 |
@@ -214,10 +216,11 @@ ai-dev-workflow/
 | Schedule | Script | Purpose |
 |----------|--------|---------|
 | Daily 02:00 | `daily-test.sh` | Run regression tests, report failures |
-| Daily 08:00 | `daily-scan.sh` | Scan for TODO/FIXME and failing tests |
-| Monday 09:00 | `weekly-deps.sh` | Check for outdated dependencies |
+| Daily 06:00 | `daily-shield.sh` | AgentShield security scan on workflow configs |
+| Daily 08:00 | `daily-scan.sh` | Scan for TODO/FIXME, .skip/.only, console.log |
+| Monday 09:00 | `weekly-deps.sh` | Check outdated deps + security audit (multi-stack) |
 
-All scripts use `claude -p` (non-interactive mode) and output to `logs/`.
+Scripts run directly (no `claude -p` dependency) and output to `logs/`.
 
 ## Configuration Reference
 

@@ -169,16 +169,10 @@ copy_governance() {
   cp "$src/.codex/agents/reviewer.toml" "$dst/.codex/agents/reviewer.toml" 2>/dev/null || true
 
   # Codex AGENTS.md
-  cat > "$dst/.codex/AGENTS.md" << 'CDXEOF'
-# Codex-specific instructions
+  cp "$src/.codex/AGENTS.md" "$dst/.codex/AGENTS.md"
 
-Inherits all rules from the root AGENTS.md.
-
-## Additional Codex conventions
-- Use workspace-write sandbox mode for all tasks.
-- Approval policy is on-request — always ask before executing destructive commands.
-- When running tests, capture full output including stderr.
-CDXEOF
+  # Hooks
+  cp "$src/hooks/hooks.json" "$dst/hooks/hooks.json" 2>/dev/null || true
 
   # Scripts
   mkdir -p "$dst/scripts/cron" "$dst/hooks" "$dst/logs"

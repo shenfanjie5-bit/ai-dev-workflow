@@ -16,16 +16,21 @@ log_error()   { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 log_warn()    { echo -e "${YELLOW}[WARN]${NC} $*"; }
 log_phase()   { echo -e "\n${CYAN}══════════════════════════════════════${NC}"; echo -e "${CYAN}  Phase: $*${NC}"; echo -e "${CYAN}══════════════════════════════════════${NC}\n"; }
 
-# Claude CLI flags for non-interactive mode
-# --permission-mode acceptEdits: auto-accept file writes (safe: permissions.deny still enforced)
-# --allowedTools: whitelist only the tools needed for code generation
+# ── Claude Code CLI flags ─────────────────────────────
+# Used for planning, analysis, and verification (NOT code writing)
 CLAUDE_FLAGS=(
   --output-format text
   --permission-mode acceptEdits
   --allowedTools "Edit Write Read Bash Glob Grep"
 )
 
-# Run claude in non-interactive mode with logging
+# ── Codex CLI flags ───────────────────────────────────
+# Used for code implementation and test execution
+CODEX_FLAGS=(
+  --full-auto
+)
+
+# Run Claude Code in non-interactive mode (for planning/analysis)
 # Usage: run_claude "prompt" [output_file]
 run_claude() {
   local prompt="$1"
@@ -38,11 +43,24 @@ run_claude() {
   fi
 }
 
-# Run claude and capture output to variable
+# Run Claude and capture output to variable
 # Usage: result=$(run_claude_capture "prompt")
 run_claude_capture() {
   local prompt="$1"
   claude -p "$prompt" "${CLAUDE_FLAGS[@]}" 2>&1
+}
+
+# Run Codex CLI in non-interactive mode (for code implementation)
+# Usage: run_codex "prompt" [output_file]
+run_codex() {
+  local prompt="$1"
+  local output_file="${2:-}"
+
+  if [[ -n "$output_file" ]]; then
+    codex exec "$prompt" "${CODEX_FLAGS[@]}" 2>&1 | tee "$output_file"
+  else
+    codex exec "$prompt" "${CODEX_FLAGS[@]}" 2>&1
+  fi
 }
 
 # Check required dependencies
@@ -50,6 +68,7 @@ ensure_deps() {
   local missing=()
 
   command -v claude >/dev/null 2>&1 || missing+=("claude")
+  command -v codex  >/dev/null 2>&1 || missing+=("codex")
   command -v git    >/dev/null 2>&1 || missing+=("git")
   command -v pnpm   >/dev/null 2>&1 || missing+=("pnpm")
   command -v gh     >/dev/null 2>&1 || missing+=("gh")
@@ -61,7 +80,7 @@ ensure_deps() {
     return 1
   fi
 
-  log_success "All dependencies available: claude, git, pnpm, gh, jq"
+  log_success "All dependencies available: claude, codex, git, pnpm, gh, jq"
 }
 
 # Get the root directory of ai-dev-workflow

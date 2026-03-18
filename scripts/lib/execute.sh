@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-# execute.sh — Phase 3: Execute tasks with TDD loop
+# execute.sh — Phase 3: Execute tasks with Claude (plan) + Codex (implement)
+#
+# Architecture alignment (ADR design):
+#   Claude Code → analysis, planning, complex reasoning
+#   Codex CLI   → code generation, test execution, refactoring
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
@@ -13,7 +17,7 @@ run_execute() {
   local log_dir="${project_dir}/logs"
   local failed_log="${log_dir}/failed-tasks.log"
 
-  log_phase "3 — Execute"
+  log_phase "3 — Execute (Claude plans → Codex implements)"
 
   mkdir -p "$log_dir"
   : > "$failed_log"
@@ -32,6 +36,7 @@ run_execute() {
   skipped=0
 
   log_info "Executing ${task_count} tasks (max retries per task: ${max_retries})"
+  log_info "Workflow: Claude Code (plan) → Codex CLI (implement)"
 
   for i in $(seq 0 $((task_count - 1))); do
     local tid title description
@@ -43,8 +48,7 @@ run_execute() {
     log_info "━━━ Task ${tid}/${task_count}: ${title} ━━━"
 
     # Save state before task
-    local stash_name="auto-dev-task-${tid}"
-    git stash push -m "$stash_name" --include-untracked >/dev/null 2>&1 || true
+    git stash push -m "auto-dev-task-${tid}" --include-untracked >/dev/null 2>&1 || true
     local had_stash=$?
 
     local task_succeeded=false
@@ -54,10 +58,9 @@ run_execute() {
 
       local task_log="${log_dir}/task-${tid}-attempt-${attempt}.log"
 
-      # Build the prompt for Claude
-      local prompt
-      prompt=$(cat << TASKEOF
-You are implementing a feature for this project. Follow TDD: write tests first, then implement.
+      # ── Step 1: Codex implements (code generation + tests) ──
+      local codex_prompt
+      codex_prompt="You are implementing a feature for this project. Follow TDD: write tests first, then implement.
 
 TASK: ${title}
 DESCRIPTION: ${description}
@@ -65,15 +68,13 @@ DESCRIPTION: ${description}
 INSTRUCTIONS:
 1. First, write test file(s) for this feature.
 2. Then implement the feature to make tests pass.
-3. Run the test command to verify.
+3. Run the test command (pnpm test) to verify.
 4. If tests fail, fix the code until they pass.
 5. Keep changes focused on this task only.
 6. Use TypeScript strict mode. Follow existing code patterns.
-TASKEOF
-      )
+7. All financial calculations must use decimal.js, never floating-point."
 
-      # Execute with Claude
-      run_claude "$prompt" "$task_log"
+      run_codex "$codex_prompt" "$task_log"
       local exit_code=$?
 
       if [[ $exit_code -eq 0 ]]; then
@@ -81,6 +82,17 @@ TASKEOF
         if git diff --quiet && git diff --cached --quiet && [[ -z "$(git ls-files --others --exclude-standard)" ]]; then
           log_warn "No file changes detected, retrying..."
           continue
+        fi
+
+        # ── Step 2: Claude reviews (quick sanity check) ──
+        log_info "Claude reviewing changes..."
+        local review_result
+        review_result=$(run_claude_capture "Review the git diff for task '${title}'. Check for: 1) hardcoded secrets 2) floating-point on financial data 3) missing error handling. Reply with PASS if OK, or list issues found. Be brief.")
+
+        if echo "$review_result" | grep -qi "PASS\|looks good\|no issues\|approved"; then
+          log_success "Claude review: PASS"
+        else
+          log_warn "Claude review flagged issues (non-blocking): $(echo "$review_result" | head -3)"
         fi
 
         # Commit changes

@@ -254,6 +254,22 @@ All scripts use `claude -p` (non-interactive mode) and output to `logs/`.
 
 Set via: `export ECC_HOOK_PROFILE=minimal` in `~/.zshrc`
 
+## Auto-Dev: Autonomous Development Orchestrator
+
+Provide requirement documents, and `auto-dev.sh` autonomously scaffolds a project, breaks requirements into tasks, implements each with TDD, and delivers a working codebase.
+
+```bash
+# Put your PRD in input/ then run:
+./scripts/auto-dev.sh --project my-app --input ./input/ --stack nextjs-ts
+
+# Phase 1: Scaffold — init project + copy governance configs
+# Phase 2: Plan    — Claude analyzes PRD → tasks.json
+# Phase 3: Execute — TDD loop per task (test first → code → verify)
+# Phase 4: Verify  — build + test + lint + security scan + push
+```
+
+Supported stacks: `nextjs-ts` (default), `python-fastapi`, `go-gin`. Run `--help` for full usage.
+
 ## Health Checks
 
 | Layer | Command | Expected |

@@ -1,6 +1,6 @@
 # AI-Assisted Development Workflow
 
-> Claude Code + Codex CLI + ECC + Codex Review — subscription-only, zero API cost.
+> Claude Code + Codex CLI + ECC — subscription-only, zero API cost.
 
 A production-ready configuration repository that integrates multiple AI coding agents into a unified, security-governed development workflow. Designed for individual developers using Claude Pro/Max and ChatGPT Plus/Pro subscriptions.
 
@@ -8,21 +8,21 @@ A production-ready configuration repository that integrates multiple AI coding a
 
 Using AI agents for coding without guardrails is risky: agents can read `.env` files, execute dangerous shell commands, or commit untested code. Meanwhile, solo developers lack the second pair of eyes that team code review provides.
 
-This repo solves both problems with a **four-layer architecture**:
+This repo solves both problems with a **three-layer architecture** plus Sprint-based code review:
 
 ```
 +---------------------------------------------------+
-|  PR Review     — Codex Review (@codex review)      |
-+---------------------------------------------------+
 |  Governance    — ECC (Rules, Hooks, Skills, Shield) |
 +---------------------------------------------------+
-|  Execution     — Claude Code CLI  |  Codex CLI     |
+|  Execution     — Claude Code (plan/review)         |
+|                  Codex CLI   (implement)           |
 +---------------------------------------------------+
 |  Rules         — AGENTS.md + CLAUDE.md + .claude/   |
 +---------------------------------------------------+
 
-Orchestration (non-layer, Unix-native):
-  Sessions: tmux     Scheduling: crontab
+Cross-cutting:
+  Sprint Review  — Claude Code comprehensive review per Sprint
+  Orchestration  — tmux + crontab (Unix-native)
 ```
 
 ## Quick Start
@@ -95,7 +95,7 @@ crontab -e
 
 ### Layer 2: Execution (AI Agents)
 
-- **Claude Code** — code analysis, architecture planning, complex reasoning
+- **Claude Code** — planning, analysis, complex reasoning, **Sprint Review**
 - **Codex CLI** — code generation, test execution, refactoring
 - Both use **subscription login only** (no `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`)
 
@@ -108,15 +108,17 @@ crontab -e
 - **AgentShield** — 102-rule security scanner for agent configurations
 - **Hook Profile** — `minimal` (default) &rarr; `standard` &rarr; `strict`
 
-### Layer 4: PR Review (Codex GitHub Review)
+### Sprint Review (Claude Code)
 
-- Triggered manually via `@codex review` in PR comments (ADR-003)
-- Review behavior driven by `AGENTS.md` Review guidelines
-- P0/P1 severity definitions ensure high signal-to-noise ratio
+- Triggered automatically at the end of each Sprint in `auto-dev.sh`
+- Reviews cumulative Sprint diff against `AGENTS.md` Review guidelines (P0/P1)
+- P0 issues block the Sprint — Codex auto-fixes, then re-review (up to 2 rounds)
+- P1 issues are logged but non-blocking
+- Each passed Sprint is tagged `sprint-{N}-done`
 
 ## Security Model
 
-Defense in depth with four layers:
+Defense in depth with three layers plus Sprint Review:
 
 ```
 Layer 1: permissions.deny        (hard block, cannot fail-open)
@@ -130,9 +132,9 @@ Layer 2: ECC PreToolUse Hooks    (can block, may fail-open)
 Layer 3: AgentShield Scan        (post-hoc audit)
          102 rules: secrets, permissions, hooks, MCP, agents
 
-Layer 4: Codex Review            (PR-level gate)
-         P0: hardcoded secrets, auth regression  -> block merge
-         P1: missing tests, console.log          -> flag for fix
+Sprint Review: Claude Code       (per-Sprint gate)
+         P0: hardcoded secrets, auth regression, SQL injection  -> block Sprint
+         P1: missing tests, console.log, float finance          -> log only
 ```
 
 ## Repository Structure
@@ -165,14 +167,19 @@ ai-dev-workflow/
 +-- .codex/
 |   +-- AGENTS.md                 # Codex-specific supplements
 |   +-- config.toml               # Codex CLI config
-|   +-- agents/
-|       +-- reviewer.toml         # Codex Review agent config
 |
 +-- hooks/
 |   +-- hooks.json                # ECC Hook definitions
 |
 +-- scripts/
 |   +-- start-sessions.sh         # tmux session launcher
+|   +-- lib/
+|   |   +-- common.sh             # Shared functions & CLI wrappers
+|   |   +-- scaffold.sh           # Phase 1: project init
+|   |   +-- plan.sh               # Phase 2: PRD → tasks.json (Sprint groups)
+|   |   +-- review.sh             # Sprint Review: Claude Code P0/P1 audit
+|   |   +-- execute.sh            # Phase 3: Sprint loop + Review Gate
+|   |   +-- verify.sh             # Phase 4: build/test/lint/scan/push
 |   +-- cron/
 |       +-- daily-test.sh         # Regression tests (daily 2:00)
 |       +-- daily-shield.sh       # AgentShield scan (daily 6:00)
@@ -184,16 +191,16 @@ ai-dev-workflow/
 
 ## Development Workflow
 
-### Daily Flow: Code &rarr; Commit &rarr; PR &rarr; Review
+### Daily Flow: Sprint &rarr; Review &rarr; Commit &rarr; PR
 
 ```
-1. Developer opens tmux session
+1. Developer opens tmux session (or runs auto-dev.sh)
 2. Claude Code reads AGENTS.md + CLAUDE.md + rules/
 3. ECC Hooks intercept each tool call (deny-list enforced)
-4. Code changes -> git commit -> push to feature branch
-5. Open PR -> comment @codex review
-6. Codex Review checks against AGENTS.md Review guidelines
-7. Fix flagged issues -> merge
+4. Per Sprint: Codex implements tasks → Claude quick checks
+5. Sprint Review: Claude audits cumulative diff (P0 blocks, P1 logs)
+6. Tag sprint-{N}-done → push to feature branch
+7. Open PR → merge (review already done at Sprint level)
 ```
 
 ### Feature Implementation Order
@@ -266,8 +273,8 @@ Provide requirement documents, and `auto-dev.sh` autonomously scaffolds a projec
 ./scripts/auto-dev.sh --project my-app --input ./input/ --stack nextjs-ts
 
 # Phase 1: Scaffold — init project + copy governance configs
-# Phase 2: Plan    — Claude analyzes PRD → tasks.json
-# Phase 3: Execute — TDD loop per task (test first → code → verify)
+# Phase 2: Plan    — Claude analyzes PRD → tasks.json (Sprint groups)
+# Phase 3: Execute — Per-Sprint: implement tasks + Sprint Review
 # Phase 4: Verify  — build + test + lint + security scan + push
 ```
 
@@ -280,7 +287,7 @@ Supported stacks: `nextjs-ts` (default), `python-fastapi`, `go-gin`. Run `--help
 | Rules | `head -5 AGENTS.md` | File title + Setup commands visible |
 | Execution | `claude --version && codex --version` | Version numbers, no auth errors |
 | Governance | `npx ecc-agentshield scan` | No Critical findings |
-| Review | `@codex review` on a test PR | Review response received |
+| Sprint Review | `claude -p "echo REVIEW_PASS"` | Claude responds without auth errors |
 
 ## Roadmap
 
@@ -288,19 +295,20 @@ Supported stacks: `nextjs-ts` (default), `python-fastapi`, `go-gin`. Run `--help
 - CLI installation & subscription login
 - AGENTS.md + CLAUDE.md + settings.json security baseline
 - ECC Core profile + AgentShield first scan
-- Codex Review configuration
+- Sprint-based auto-dev workflow with Claude Code Review
 - tmux + crontab scripts
 
 ### Phase 2: Daily Usage (Weeks 2-4)
-- Tune Review guidelines based on real feedback
+- Tune Sprint Review P0/P1 rules based on real auto-dev runs
 - Verify crontab stability
 - Upgrade Hook profile: minimal &rarr; standard
 - Add project-specific rules as needed
+- Tune Sprint size (currently 3-5 tasks per Sprint)
 
 ### Phase 3: Deep Integration (Week 5+)
 - Evaluate ECC continuous-learning
 - Consider strict Hook profile
-- Track Claude Code Review availability for individual subscriptions
+- Explore PR-level review integration (Claude Code or GitHub Actions)
 
 ## Key Design Decisions
 
@@ -308,8 +316,9 @@ Supported stacks: `nextjs-ts` (default), `python-fastapi`, `go-gin`. Run `--help
 |-----|----------|-----------|
 | ADR-001 | Remove AionUi, use tmux + crontab | Lighter, more reliable, zero extra dependencies |
 | ADR-002 | ECC Core profile with clear must-use/optional boundary | Avoid cognitive overload from 65+ skills |
-| ADR-003 | Codex Review manual-trigger only | Preserve review quota for important PRs |
+| ~~ADR-003~~ | ~~Codex Review manual-trigger only~~ | Deprecated: Codex Review doesn't read repo config; replaced by Claude Code Sprint Review (ADR-005) |
 | ADR-004 | AGENTS.md as sole cross-tool contract | Single source of truth, easy tool migration |
+| ADR-005 | Replace Codex Review with Claude Code Sprint Review | Codex Review ignores repo-level P0/P1 rules (tested 2026-03-30). Claude Code reviews the Sprint diff locally, consuming AGENTS.md guidelines directly. Sprint grouping gives natural review boundaries. |
 
 ## License
 

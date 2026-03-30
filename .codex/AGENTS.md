@@ -4,11 +4,13 @@ Inherits all rules from the root AGENTS.md.
 
 ## Role in auto-dev workflow
 
-Codex is the **code implementation agent**. Claude handles planning and analysis; Codex writes code and runs tests.
+Codex is the **code implementation agent**. Claude handles planning, review, and analysis; Codex writes code and runs tests.
 
 Division of labor:
-- **Claude Code** → PRD analysis, task planning, architecture decisions, code review, verification
+- **Claude Code** → PRD analysis, task planning, architecture decisions, Sprint Review, verification
 - **Codex CLI** → Code generation, test writing, test execution, implementation
+
+Note: Code review is handled by Claude Code at the Sprint level, not by Codex.
 
 ## Sandbox & permissions
 - Use `workspace-write` sandbox mode for all tasks.

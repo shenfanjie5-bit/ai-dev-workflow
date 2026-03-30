@@ -19,6 +19,7 @@ LIB_DIR="${SCRIPT_DIR}/lib"
 source "$LIB_DIR/common.sh"
 source "$LIB_DIR/scaffold.sh"
 source "$LIB_DIR/plan.sh"
+source "$LIB_DIR/review.sh"
 source "$LIB_DIR/execute.sh"
 source "$LIB_DIR/verify.sh"
 
@@ -58,8 +59,8 @@ Options:
 
 Workflow:
   Phase 1: Scaffold    Initialize project + copy governance configs
-  Phase 2: Plan        Analyze requirements → generate tasks.json
-  Phase 3: Execute     Implement each task with TDD (test first, then code)
+  Phase 2: Plan        Analyze requirements → tasks.json (with Sprint grouping)
+  Phase 3: Execute     Per-Sprint: implement tasks + Claude Code Sprint Review
   Phase 4: Verify      Build + test + lint + security scan + push
 
 Example:

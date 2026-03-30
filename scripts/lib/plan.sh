@@ -39,25 +39,33 @@ ${docs}
 OUTPUT FORMAT (strict JSON, no markdown fences):
 {
   "project": "PROJECT_NAME",
-  "tasks": [
+  "sprints": [
     {
       "id": 1,
-      "title": "Short task title in Chinese",
-      "description": "Detailed implementation description including what files to create/modify, what dependencies to install, and what tests to write. Be specific enough that another AI agent can implement this without ambiguity.",
-      "depends_on": []
+      "name": "Sprint name describing the functional module",
+      "tasks": [
+        {
+          "id": 1,
+          "title": "Short task title in Chinese",
+          "description": "Detailed implementation description including what files to create/modify, what dependencies to install, and what tests to write. Be specific enough that another AI agent can implement this without ambiguity.",
+          "depends_on": []
+        }
+      ]
     }
   ]
 }
 
 RULES:
 1. Break down into 5-15 small, independently testable tasks.
-2. Order tasks by dependency (infrastructure first, then features, then polish).
-3. Each task should be completable in a single Claude session.
-4. Include database setup, API endpoints, UI components, and tests as separate tasks.
-5. First task should always be project infrastructure (database connection, auth setup, etc).
-6. Last task should be integration testing and polish.
-7. Each description must mention what tests to write.
-8. Output ONLY valid JSON, no explanation text before or after.
+2. Group tasks into Sprints by functional module (3-5 tasks per Sprint).
+3. Sprint 1 is always infrastructure (project setup, database, config).
+4. The last Sprint is always integration testing and polish.
+5. Order Sprints by dependency (infrastructure → core features → UI → polish).
+6. Within each Sprint, order tasks by dependency.
+7. Each task should be completable in a single Claude session.
+8. Include database setup, API endpoints, UI components, and tests as separate tasks.
+9. Each description must mention what tests to write.
+10. Output ONLY valid JSON, no explanation text before or after.
 PLANEOF
   )
 
@@ -85,20 +93,30 @@ PLANEOF
     fi
   fi
 
-  local task_count
-  task_count=$(get_task_count "$tasks_file")
-  log_success "Generated ${task_count} tasks → tasks.json"
+  local sprint_count task_count
+  sprint_count=$(jq '.sprints | length' "$tasks_file")
+  task_count=$(jq '[.sprints[].tasks[]] | length' "$tasks_file")
+  log_success "Generated ${task_count} tasks in ${sprint_count} sprints → tasks.json"
 
-  # Print task list
+  # Print sprint/task list
   echo ""
-  echo "Task List:"
+  echo "Sprint Plan:"
   echo "─────────────────────────────────────"
-  for i in $(seq 0 $((task_count - 1))); do
-    local tid title
-    tid=$(get_task_field "$tasks_file" "$i" "id")
-    title=$(get_task_field "$tasks_file" "$i" "title")
-    echo "  [$tid] $title"
+  for s in $(seq 0 $((sprint_count - 1))); do
+    local sname
+    sname=$(jq -r ".sprints[$s].name" "$tasks_file")
+    echo ""
+    echo "  Sprint $((s + 1)): $sname"
+    local stask_count
+    stask_count=$(jq ".sprints[$s].tasks | length" "$tasks_file")
+    for t in $(seq 0 $((stask_count - 1))); do
+      local tid title
+      tid=$(jq -r ".sprints[$s].tasks[$t].id" "$tasks_file")
+      title=$(jq -r ".sprints[$s].tasks[$t].title" "$tasks_file")
+      echo "    [$tid] $title"
+    done
   done
+  echo ""
   echo "─────────────────────────────────────"
   echo ""
 
